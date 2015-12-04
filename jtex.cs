@@ -83,6 +83,7 @@ namespace CTR
                     case 0x5:  // RGB565
                     case 0x8:  // RGBA4444
                     case 0x7:  // RGBA5551
+                    case 10:
                         c = DecodeColor(br.ReadUInt16(), f);
                         break;
                     case 0x6:  // RGB8:     // 24bit
@@ -105,112 +106,27 @@ namespace CTR
             }
             return img;
         }
-        internal static Bitmap getIMG(jtex bclim)
+        internal static Bitmap getIMG(jtex tex)
         {
             // New Image
-            int w = nlpo2(gcm((int)bclim.Width, 8));
-            int h = nlpo2(gcm((int)bclim.Height, 8));
-            int f = bclim.Format == 4 ? 7 : 9;
+            int w = nlpo2(gcm((int)tex.Width, 8));
+            int h = nlpo2(gcm((int)tex.Height, 8));
+            int f = 0;
+            if (tex.Format == 2)
+                f = 9;
+            if (tex.Format == 4)
+                f = 10;
+            if (tex.Format == 5)
+                f = 7;
             int area = w * h;
-            if (area > bclim.Data.Length / 4)
+            if (area > tex.Data.Length / 4)
             {
-                w = gcm((int)bclim.Width, 8);
-                h = gcm((int)bclim.Height, 8);
+                w = gcm((int)tex.Width, 8);
+                h = gcm((int)tex.Height, 8);
             }
             // Build Image
-            return getIMG(w, h, bclim.Data, f);
+            return getIMG(w, h, tex.Data, f);
         }
-
-        // BCLIM Data Writing
-
-        internal static byte[] getPixelData(Bitmap img, int format, bool rectangle = true)
-        {
-            int w = img.Width;
-            int h = img.Height;
-
-            bool perfect = (w == h && (w != 0) && ((w & (w - 1)) == 0));
-            if (!perfect) // Check if square power of two, else resize
-            {
-                // Square Format Checks
-                if (rectangle && Math.Min(img.Width, img.Height) < 32)
-                {
-                    w = nlpo2(img.Width);
-                    h = nlpo2(img.Height);
-                }
-                else
-                {
-                    w = h = Math.Max(nlpo2(w), nlpo2(h)); // else resize
-                }
-            }
-
-            using (MemoryStream mz = new MemoryStream())
-            using (BinaryWriter bz = new BinaryWriter(mz))
-            {
-                int p = gcm(w, 8) / 8;
-                if (p == 0) p = 1;
-                for (uint i = 0; i < w * h; i++)
-                {
-                    uint x;
-                    uint y;
-                    d2xy(i % 64, out x, out y);
-
-                    // Get Shift Tile
-                    uint tile = i / 64;
-
-                    // Shift Tile Coordinate into Tilemap
-                    x += (uint)(tile % p) * 8;
-                    y += (uint)(tile / p) * 8;
-
-                    // Don't write data
-                    Color c;
-                    if (x >= img.Width || y >= img.Height)
-                    { c = Color.FromArgb(0, 0, 0, 0); }
-                    else
-                    { c = img.GetPixel((int)x, (int)y); if (c.A == 0) c = Color.FromArgb(0, 86, 86, 86); }
-
-                    switch (format)
-                    {
-                        case 0: bz.Write(GetL8(c)); break;                // L8
-                        case 1: bz.Write(GetA8(c)); break;                // A8
-                        case 2: bz.Write(GetLA4(c)); break;               // LA4(4)
-                        case 3: bz.Write(GetLA8(c)); break;             // LA8(8)
-                        case 4: bz.Write(GetHILO8(c)); break;           // HILO8
-                        case 5: bz.Write(GetRGB565(c)); break;          // RGB565
-                        case 6:
-                            {
-                                bz.Write(c.B);
-                                bz.Write(c.G);
-                                bz.Write(c.R); break;
-                            }
-                        case 7: bz.Write(GetRGBA5551(c)); break;        // RGBA5551
-                        case 8: bz.Write(GetRGBA4444(c)); break;        // RGBA4444
-                        case 9: bz.Write(GetRGBA8888(c)); break;          // RGBA8
-                        case 10: throw new Exception("ETC1 not supported.");
-                        case 11: throw new Exception("ETC1A4 not supported.");
-                        case 12:
-                            {
-                                byte val = (byte)(GetL8(c) / 0x11); // First Pix    // L4
-                                { c = img.GetPixel((int)x, (int)y); if (c.A == 0) c = Color.FromArgb(0, 0, 0, 0); }
-                                val |= (byte)((GetL8(c) / 0x11) << 4); i++;
-                                bz.Write(val); break;
-                            }
-                        case 13:
-                            {
-                                byte val = (byte)(GetA8(c) / 0x11); // First Pix    // L4
-                                { c = img.GetPixel((int)x, (int)y); }
-                                val |= (byte)((GetA8(c) / 0x11) << 4); i++;
-                                bz.Write(val); break;
-                            }
-                    }
-                }
-                if (!perfect)
-                    while (mz.Length < nlpo2((int)mz.Length)) // pad
-                        bz.Write((byte)0);
-                return mz.ToArray();
-            }            
-        }
-
-
         internal static int[] Convert5To8 = { 0x00,0x08,0x10,0x18,0x20,0x29,0x31,0x39,
                                               0x41,0x4A,0x52,0x5A,0x62,0x6A,0x73,0x7B,
                                               0x83,0x8B,0x94,0x9C,0xA4,0xAC,0xB4,0xBD,
@@ -264,6 +180,12 @@ namespace CTR
                     green = (byte)((val >> 16) & 0xFF);
                     blue = (byte)((val >> 8) & 0xFF);
                     alpha = (byte)(val & 0xFF);
+                    return Color.FromArgb(alpha, red, green, blue);
+                case 10: // RGBA4444
+                    alpha = (byte)(0x11 * (val & 0xf));
+                    red = (byte)(0x11 * ((val >> 12) & 0xf));
+                    green = (byte)(0x11 * ((val >> 8) & 0xf));
+                    blue = (byte)(0x11 * ((val >> 4) & 0xf));
                     return Color.FromArgb(alpha, red, green, blue);
                 // case 10:
                 // case 11:

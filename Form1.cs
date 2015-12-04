@@ -38,7 +38,7 @@ namespace jtex
             try
             {
                 if (!File.Exists(path)) throw new Exception("Can only accept files, not folders.");
-                pictureBox1.Image = Picross.makeBMP(path, checkBox1.Checked);
+                pictureBox1.Image = Picross.makeBMP(path, checkBox1.Checked, false);
             }
             catch (Exception e) { System.Media.SystemSounds.Asterisk.Play(); }
         }
