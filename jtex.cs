@@ -110,7 +110,7 @@ namespace CTR
             // New Image
             int w = nlpo2(gcm((int)bclim.Width, 8));
             int h = nlpo2(gcm((int)bclim.Height, 8));
-            const int f = 9;
+            int f = bclim.Format == 4 ? 7 : 9;
             int area = w * h;
             if (area > bclim.Data.Length / 4)
             {
@@ -473,6 +473,7 @@ namespace CTR
                 }
 
             tex.Length = BitConverter.ToUInt32(data, 0x0);
+            tex.Format = BitConverter.ToUInt32(data, 0x4);
             tex.Width = BitConverter.ToUInt32(data, 0x8);
             tex.Height = BitConverter.ToUInt32(data, 0xC);
 
@@ -486,7 +487,7 @@ namespace CTR
         public struct jtex
         {
             public UInt32 Length;
-            public UInt16 Unk;   
+            public UInt32 Format;   
             public UInt32 Width; 
             public UInt32 Height;
             

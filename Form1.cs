@@ -40,7 +40,7 @@ namespace jtex
                 if (!File.Exists(path)) throw new Exception("Can only accept files, not folders.");
                 pictureBox1.Image = Picross.makeBMP(path, checkBox1.Checked);
             }
-            catch (Exception e) { MessageBox.Show(e.ToString()); }
+            catch (Exception e) { System.Media.SystemSounds.Asterisk.Play(); }
         }
     }
 }
